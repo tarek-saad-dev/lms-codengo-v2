@@ -17,38 +17,40 @@ export default function Home() {
         <Image src="/hero.svg" alt="hero-image" fill />
       </div>
       <div className="flex flex-col items-center gap-y-7">
-        <h1 className="text-xl lg:text-3xl font-bold text-neutral-600 pb-4 max-w-[480px] text-center">
-          Learn, practice, and master programming with codeingo
+        <h1 className="text-xl lg:text-5xl font-bold text-neutral-600 pb-4 max-w-[600px] text-center">
+          <span className="bg-gradient-to-r from-green-500 to-emerald-400 bg-clip-text text-transparent">Your lectures</span>
+          <br />
+          <span className="text-primary text-xl lg:text-5xl">in <span className="font-medium">small</span>, <span className="font-medium">fun</span> steps</span>
         </h1>
-          <ClerkLoading>
-            <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
-          </ClerkLoading>
-          <ClerkLoaded>
-            <SignedIn>
-              <Button variant="secondary" size="lg" className="w-10/12" asChild>
-                <Link href="/learn">Continue learning path</Link>
+        <ClerkLoading>
+          <Loader2 className="w-5 h-5 text-muted-foreground animate-spin" />
+        </ClerkLoading>
+        <ClerkLoaded>
+          <SignedIn>
+            <Button variant="secondary" size="lg" className="w-10/12" asChild>
+              <Link href="/learn">Continue learning path</Link>
+            </Button>
+          </SignedIn>
+          <SignedOut>
+            <SignUpButton
+              mode="modal"
+              signInFallbackRedirectUrl="/learn"
+            >
+              <Button variant="secondary" size="lg" className="w-10/12">
+                Get started
               </Button>
-            </SignedIn>
-            <SignedOut>
-              <SignUpButton
-                mode="modal"
-                signInFallbackRedirectUrl="/learn"
-              >
-                <Button variant="secondary" size="lg" className="w-10/12">
-                  Get started
-                </Button>
-              </SignUpButton>
-              <SignInButton
+            </SignUpButton>
+            <SignInButton
               mode="modal"
               fallbackRedirectUrl="/learn"
             >
-                <Button variant="primaryOutline" size="lg" className="w-10/12">
-                  Already have an account? Sign in
-                </Button>
-              </SignInButton>
-            </SignedOut>
-          </ClerkLoaded>
-        </div>
+              <Button variant="primaryOutline" size="lg" className="w-10/12">
+                Already have an account? Sign in
+              </Button>
+            </SignInButton>
+          </SignedOut>
+        </ClerkLoaded>
       </div>
+    </div>
   );
 }
