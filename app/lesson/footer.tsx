@@ -1,5 +1,10 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useKey, useMedia } from "react-use";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,8 +19,35 @@ type Props = {
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const Footer = ({ onCheck, status, disabled, lessonId, explanation }: Props) => {
+  const router = useRouter();
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [isPending, startTransition] = useTransition();
+
   useKey("Enter", onCheck, {}, [onCheck]);
   const isMobile = useMedia("(max-width: 1024px)", false);
+
+  const handlePracticeAgain = () => {
+    if (!lessonId || isNavigating) return;
+
+    setIsNavigating(true);
+
+    startTransition(() => {
+      router.push(`/lesson/${lessonId}`);
+    });
+
+    setTimeout(() => {
+      if (isNavigating) {
+        setIsNavigating(false);
+        toast.error("Navigation failed. Please try again.");
+      }
+    }, 10000);
+  };
+
+  const handlePrefetchLesson = () => {
+    if (lessonId) {
+      router.prefetch(`/lesson/${lessonId}`);
+    }
+  };
 
   return (
     <footer
@@ -51,10 +83,19 @@ export const Footer = ({ onCheck, status, disabled, lessonId, explanation }: Pro
           {status === "completed" && (
             <Button
               variant="default"
-              size={isMobile ? "sm" : "lg"} 
-              onClick={() => { window.location.href = `/lesson/${lessonId}`; }}
+              size={isMobile ? "sm" : "lg"}
+              onClick={handlePracticeAgain}
+              onMouseEnter={handlePrefetchLesson}
+              disabled={isNavigating || isPending}
             >
-              Practice again
+              {isNavigating || isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                "Practice again"
+              )}
             </Button>
           )}
         </div>
@@ -63,8 +104,8 @@ export const Footer = ({ onCheck, status, disabled, lessonId, explanation }: Pro
           disabled={disabled}
           className="w-auto"
           onClick={onCheck}
-          size={isMobile ? "sm" : "lg"} 
-          variant={status === "wrong" ? "danger" : "secondary"} 
+          size={isMobile ? "sm" : "lg"}
+          variant={status === "wrong" ? "danger" : "secondary"}
         >
           {status === "none" && "Check"}
           {status === "correct" && "Next"}

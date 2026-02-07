@@ -1,11 +1,13 @@
 "use client";
 
-import Link from "next/link";
-import { Check, Crown, Star } from "lucide-react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Check, Crown, Star, Loader2 } from "lucide-react";
 import { CircularProgressbarWithChildren } from "react-circular-progressbar";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "./components/ui/tooltip";
+import { toast } from "sonner";
 import "react-circular-progressbar/dist/styles.css";
 
 type Props = {
@@ -27,6 +29,9 @@ export const LessonButton = ({
   percentage,
   title,
 }: Props) => {
+  const router = useRouter();
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [isPending, startTransition] = useTransition();
   const cycleLength = 8;
 
   const cycleIndex = index % cycleLength;
@@ -55,6 +60,34 @@ export const LessonButton = ({
 
   const href = isCompleted ? `/lesson/${id}` : "/lesson";
 
+  const handleClick = (e: React.MouseEvent) => {
+    if (locked || isNavigating) {
+      e.preventDefault();
+      return;
+    }
+
+    e.preventDefault();
+    setIsNavigating(true);
+
+    startTransition(() => {
+      router.push(href);
+    });
+
+    // Fallback timeout in case navigation fails
+    setTimeout(() => {
+      if (isNavigating) {
+        setIsNavigating(false);
+        toast.error("Navigation failed. Please try again.");
+      }
+    }, 10000);
+  };
+
+  const handlePrefetch = () => {
+    if (!locked) {
+      router.prefetch(href);
+    }
+  };
+
   return (
     <Tooltip
       side="right"
@@ -73,10 +106,10 @@ export const LessonButton = ({
         </div>
       }
     >
-      <Link
-        href={href}
-        aria-disabled={locked}
-        style={{ pointerEvents: locked ? "none" : "auto" }}
+      <div
+        onClick={handleClick}
+        onMouseEnter={handlePrefetch}
+        style={{ cursor: locked ? "not-allowed" : "pointer" }}
       >
         <div
           className="relative"
@@ -106,15 +139,20 @@ export const LessonButton = ({
                   size="rounded"
                   variant={locked ? "locked" : "secondary"}
                   className="h-[70px] w-[70px] border-b-8"
+                  disabled={isNavigating || isPending}
                 >
-                  <Icon
-                    className={cn(
-                      "h-10 w-10",
-                      locked
-                        ? "fill-neutral-400 text-neutral-400 stroke-neutral-400"
-                        : "fill-primary-foreground text-primary-foreground",
-                    )}
-                  />
+                  {isNavigating || isPending ? (
+                    <Loader2 className="h-10 w-10 animate-spin text-primary-foreground" />
+                  ) : (
+                    <Icon
+                      className={cn(
+                        "h-10 w-10",
+                        locked
+                          ? "fill-neutral-400 text-neutral-400 stroke-neutral-400"
+                          : "fill-primary-foreground text-primary-foreground",
+                      )}
+                    />
+                  )}
                 </Button>
               </CircularProgressbarWithChildren>
             </div>
@@ -123,20 +161,25 @@ export const LessonButton = ({
               size="rounded"
               variant={locked ? "locked" : "secondary"}
               className="h-[70px] w-[70px] border-b-8"
+              disabled={isNavigating || isPending}
             >
-              <Icon
-                className={cn(
-                  "h-10 w-10",
-                  locked
-                    ? "fill-neutral-400 text-neutral-400 stroke-neutral-400"
-                    : "fill-primary-foreground text-primary-foreground",
-                  isCompleted && "fill-none stroke-[4]"
-                )}
-              />
+              {isNavigating || isPending ? (
+                <Loader2 className="h-10 w-10 animate-spin text-primary-foreground" />
+              ) : (
+                <Icon
+                  className={cn(
+                    "h-10 w-10",
+                    locked
+                      ? "fill-neutral-400 text-neutral-400 stroke-neutral-400"
+                      : "fill-primary-foreground text-primary-foreground",
+                    isCompleted && "fill-none stroke-[4]"
+                  )}
+                />
+              )}
             </Button>
           )}
         </div>
-      </Link>
+      </div>
     </Tooltip>
   );
 };

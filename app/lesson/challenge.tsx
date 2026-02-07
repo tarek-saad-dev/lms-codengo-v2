@@ -28,6 +28,7 @@ import { CodeChallenge } from "./code-challenge";
 import { CompleteChallenge } from "./complete-challenge";
 import { WriteChallenge } from "./write-challenge";
 import { WebView } from "./web-view";
+import { AudioChallenge } from "./audio-challenge";
 // import ProjectV2Challenge from "./projectv2-challenge";
 import ProjectV3Challenge from "./projectv3-challenge";
 
@@ -56,7 +57,7 @@ export const Challenge = ({
 
   useMount(() => {
     if (initialPercentage === 100) {
-      
+
       openPracticeModal();
     }
   });
@@ -103,7 +104,7 @@ export const Challenge = ({
   console.log('Word options:', challenge.wordOptions);
 
   // For COMPLETE challenges, use wordOptions instead of quizOptions
-  const completeWords = challenge.type === "COMPLETE" && Array.isArray(challenge.wordOptions) ? 
+  const completeWords = challenge.type === "COMPLETE" && Array.isArray(challenge.wordOptions) ?
     challenge.wordOptions
       .sort(() => Math.random() - 0.5)
       .map(opt => ({
@@ -111,7 +112,7 @@ export const Challenge = ({
         word: opt.word,
         order: opt.order,
         correct: opt.correct
-      })) 
+      }))
     : [];
 
   const handleTextComplete = () => {
@@ -255,6 +256,27 @@ export const Challenge = ({
     );
   }
 
+  // Render audio challenge if type is AUDIO
+  if (challenge && challenge.type === "AUDIO") {
+    return (
+      <div className="h-full">
+        <Header
+          hearts={hearts}
+          percentage={percentage}
+          hasActiveSubscription={!!userSubscription}
+        />
+        <div className="flex-1 h-full">
+          <AudioChallenge
+            audioUrl={challenge.audioURL || ""}
+            label={challenge.label}
+            onComplete={handleTextComplete}
+            disabled={pending}
+          />
+        </div>
+      </div>
+    );
+  }
+
   // Render Write challenge if type is WRITE
   if (challenge.type === "WRITE" && Array.isArray(challenge.wordOptions)) {
     return (
@@ -270,12 +292,12 @@ export const Challenge = ({
               id: opt.id,
               word: opt.word,
               order: opt.order,
-          correct: opt.correct
-        }))}
-        question={challenge.completeQuestion || ""}
-        onComplete={() => handleTextComplete()}
-        disabled={status === "correct"}
-      />
+              correct: opt.correct
+            }))}
+            question={challenge.completeQuestion || ""}
+            onComplete={() => handleTextComplete()}
+            disabled={status === "correct"}
+          />
         </div>
       </div>
     );
@@ -455,6 +477,9 @@ export const Challenge = ({
       break;
     case "VIDEO":
       title = "Watch the video";
+      break;
+    case "AUDIO":
+      title = "Listen to the audio";
       break;
     case "TEXT":
       title = "Read the text";
