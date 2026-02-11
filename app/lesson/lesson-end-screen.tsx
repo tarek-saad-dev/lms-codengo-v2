@@ -6,6 +6,11 @@ import Image from "next/image";
 import { Sparkles, Heart, Star, TrendingUp, ArrowRight, BookOpen } from "lucide-react";
 import { InstantButton } from "@/components/ui/instant-button";
 import { Progress } from "@/components/ui/progress";
+import { useSfx } from "@/hooks/use-sfx";
+import { NextUpPreview } from "@/components/next-up-preview";
+import dynamic from "next/dynamic";
+
+const Confetti = dynamic(() => import("react-confetti"), { ssr: false });
 
 type Props = {
   heartsGained: number;
@@ -17,6 +22,8 @@ type Props = {
   onContinue: () => Promise<void>;
   onBackToLessons?: () => void;
   isNavigating?: boolean;
+  nextLessonTitle?: string;
+  nextLessonDuration?: string;
 };
 
 const motivationalMessages = [
@@ -53,6 +60,8 @@ export const LessonEndScreen = ({
   onContinue,
   onBackToLessons,
   isNavigating = false,
+  nextLessonTitle,
+  nextLessonDuration,
 }: Props) => {
   const [showContent, setShowContent] = useState(false);
   const [animatedProgress, setAnimatedProgress] = useState(0);
@@ -63,15 +72,25 @@ export const LessonEndScreen = ({
   // Prevent double render: track if component has been initialized
   const hasInitialized = useRef(false);
 
+  // Phase 4: SFX - Play end lesson sound once
+  const sfx = useSfx();
+  const hasPlayedSound = useRef(false);
+
   useEffect(() => {
     // Only initialize once
     if (hasInitialized.current) return;
     hasInitialized.current = true;
 
+    // Phase 4: Play end lesson sound once
+    if (!hasPlayedSound.current) {
+      sfx.playEndLesson();
+      hasPlayedSound.current = true;
+    }
+
     // Delay content appearance for celebration effect
-    const timer = setTimeout(() => setShowContent(true), 300);
+    const timer = setTimeout(() => setShowContent(true), 400);
     return () => clearTimeout(timer);
-  }, []);
+  }, [sfx]);
 
   useEffect(() => {
     // Animate progress bar
@@ -90,8 +109,21 @@ export const LessonEndScreen = ({
 
   const animationDuration = prefersReducedMotion ? 0.1 : 0.4;
 
+  // Phase 7: Confetti with reduced motion support
+  const confettiPieces = prefersReducedMotion ? 50 : 200;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+      {/* Phase 7: Confetti - reduced for accessibility */}
+      {showContent && (
+        <Confetti
+          width={typeof window !== "undefined" ? window.innerWidth : 300}
+          height={typeof window !== "undefined" ? window.innerHeight : 300}
+          recycle={false}
+          numberOfPieces={confettiPieces}
+          gravity={0.3}
+        />
+      )}
       <motion.div
         initial={{ scale: prefersReducedMotion ? 1 : 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
@@ -285,6 +317,15 @@ export const LessonEndScreen = ({
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Next Up Preview */}
+          {nextLessonTitle && (
+            <NextUpPreview
+              title={nextLessonTitle}
+              duration={nextLessonDuration}
+              type="lesson"
+            />
+          )}
 
           {/* Action Buttons */}
           <AnimatePresence>

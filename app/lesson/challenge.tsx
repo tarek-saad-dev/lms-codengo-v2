@@ -17,6 +17,7 @@ import { reduceHearts } from "@/actions/user-progress";
 import { useAudio, useWindowSize, useMount } from "react-use";
 import { LessonEndScreen } from "./lesson-end-screen";
 import { useRouter } from "next/navigation";
+import { useSfx } from "@/hooks/use-sfx";
 import { useHeartsModal } from "@/store/use-hearts-modal";
 import { usePracticeModal } from "@/store/use-practice-modal";
 // Phase 2: Keep lightweight challenges static
@@ -27,6 +28,8 @@ import { WriteChallenge } from "./write-challenge";
 import { ChallengeSkeleton } from "@/components/ui/challenge-skeleton";
 import { useChallengePrefetch } from "./use-challenge-prefetch";
 import { useNextLessonPrefetch } from "./use-next-lesson-prefetch";
+import { ChallengeMotion } from "./challenge-motion";
+import { FloatingXP } from "@/components/floating-xp";
 
 // Phase 2: Dynamic import heavy challenge types to reduce initial bundle
 const VideoChallenge = dynamic(() => import("./video-challenge").then(m => ({ default: m.VideoChallenge })), {
@@ -92,7 +95,13 @@ export const Challenge = ({
   const { width, height } = useWindowSize();
   const router = useRouter();
 
-  const [finishAudio] = useAudio({ src: "/finish.mp3", autoPlay: true });
+  const [finishAudio] = useAudio({ src: "/finish.mp3", autoPlay: false });
+
+  // Phase 4: SFX system for instant sound feedback
+  const sfx = useSfx();
+
+  // Phase 6: FloatingXP reward feedback
+  const [showFloatingXP, setShowFloatingXP] = useState(false);
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [correctAudio, _c, correctControls] = useAudio({ src: "/correct.wav" });
@@ -143,6 +152,24 @@ export const Challenge = ({
   // ALL HOOKS MUST BE DECLARED BEFORE ANY CONDITIONAL RETURNS
   const [selectedOption, setSelectedOption] = useState<number | undefined>();
   const [status, setStatus] = useState<"correct" | "wrong" | "none">("none");
+
+  // Phase 4: Aggressive challenge-to-challenge prefetching
+  // Prefetch N+1 and N+2 challenges, preload heavy components
+  useChallengePrefetch({
+    challenges: challenges.map(c => ({ id: c.id, type: c.type, order: c.order })),
+    activeIndex,
+    lessonId,
+    onLastChallenge: activeIndex === challenges.length - 1,
+  });
+
+  // Phase 4: Next lesson prefetching
+  // Prefetch next lesson when user is near the end (2 challenges before completion)
+  useNextLessonPrefetch({
+    currentLessonId: lessonId,
+    activeIndex,
+    totalChallenges: challenges.length,
+    triggerThreshold: 2,
+  });
 
   // Phase 4: Aggressive challenge-to-challenge prefetching
   // Prefetch N+1 and N+2 challenges, preload heavy components
@@ -249,6 +276,7 @@ export const Challenge = ({
   };
 
   const onNext = () => {
+    sfx.playTransition(); // Phase 4: Play transition sound when moving to next challenge
     setActiveIndex((current) => current + 1);
   };
 
@@ -268,6 +296,7 @@ export const Challenge = ({
     }
 
     if (status === "correct") {
+      sfx.playTransition(); // Phase 4: Play transition sound on continue
       onNext();
       setStatus("none");
       setSelectedOption(undefined);
@@ -308,6 +337,8 @@ export const Challenge = ({
             }
 
             correctControls.play();
+            sfx.playSuccess(); // Phase 4: Play success sound
+            setShowFloatingXP(true); // Phase 6: Show XP reward feedback
             setStatus("correct");
             console.log("Percentage:", optimisticPercentage);
             setIsCheckingAnswer(false);
@@ -352,6 +383,7 @@ export const Challenge = ({
             }
 
             incorrectControls.play();
+            sfx.playFail(); // Phase 4: Play fail sound
             setStatus("wrong");
             setIsCheckingAnswer(false);
           })
@@ -597,6 +629,11 @@ export const Challenge = ({
     <>
       {incorrectAudio}
       {correctAudio}
+      <FloatingXP
+        value={10}
+        show={showFloatingXP}
+        onComplete={() => setShowFloatingXP(false)}
+      />
       <Header
         hearts={hearts}
         percentage={percentage}
@@ -605,50 +642,52 @@ export const Challenge = ({
 
       <div className="flex-1">
         <div className="h-full flex items-center justify-center">
-          <div className="lg:min-h-[400px] lg:w-[1000px] w-full px-6 lg:px-0 flex flex-col gap-y-12">
-            <h1 className="text-md lg:text-xl text-center lg:text-start font-bold text-neutral-700">
-              {title}
-            </h1>
-            <div>
-              {challenge.type === "SELECT" && (
-                <>
-                  <QuestionBubble question={challenge.label} />
-                  <MultiChoices
-                    options={options}
-                    onSelect={onSelect}
-                    status={status}
-                    selectedOption={selectedOption}
-                    disabled={pending}
-                    type={challenge.type}
-                  />
-                  <Footer
-                    onCheck={onContinue}
-                    status={status}
-                    disabled={!selectedOption || pending || isCheckingAnswer}
-                    lessonId={lessonId}
-                    explanation={challenge.explanation || undefined}
-                  />
-                </>
-              )}
+          <ChallengeMotion type={challenge.type} challengeId={challenge.id}>
+            <div className="lg:min-h-[400px] lg:w-[1000px] w-full px-6 lg:px-0 flex flex-col gap-y-12">
+              <h1 className="text-md lg:text-xl text-center lg:text-start font-bold text-neutral-700">
+                {title}
+              </h1>
+              <div>
+                {challenge.type === "SELECT" && (
+                  <>
+                    <QuestionBubble question={challenge.label} />
+                    <MultiChoices
+                      options={options}
+                      onSelect={onSelect}
+                      status={status}
+                      selectedOption={selectedOption}
+                      disabled={pending}
+                      type={challenge.type}
+                    />
+                    <Footer
+                      onCheck={onContinue}
+                      status={status}
+                      disabled={!selectedOption || pending || isCheckingAnswer}
+                      lessonId={lessonId}
+                      explanation={challenge.explanation || undefined}
+                    />
+                  </>
+                )}
 
-              {challenge.type === "PROJECT" && (
-                <div className="w-full h-[calc(100vh-12rem)]">
-                  <ProjectV3Challenge
-                    projectId={challenge.id.toString()}
-                    projectStructure={challenge.projectStructure || "[]"}
-                    projectFiles={challenge.projectFiles || "{}"}
-                    language={challenge.language || "javascript"}
-                    disabled={status === "correct"}
-                    onSubmit={() => {
-                      // TODO: In future work, add code validation here
-                      // For now, just mark as correct and move to next challenge
-                      handleTextComplete();
-                    }}
-                  />
-                </div>
-              )}
+                {challenge.type === "PROJECT" && (
+                  <div className="w-full h-[calc(100vh-12rem)]">
+                    <ProjectV3Challenge
+                      projectId={challenge.id.toString()}
+                      projectStructure={challenge.projectStructure || "[]"}
+                      projectFiles={challenge.projectFiles || "{}"}
+                      language={challenge.language || "javascript"}
+                      disabled={status === "correct"}
+                      onSubmit={() => {
+                        // TODO: In future work, add code validation here
+                        // For now, just mark as correct and move to next challenge
+                        handleTextComplete();
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          </ChallengeMotion>
         </div>
       </div>
     </>
