@@ -7,10 +7,14 @@ import db from "@/db/drizzle";
 import { and, eq } from "drizzle-orm";
 import { getUserProgress } from "@/db/queries";
 import { challengeProgress, challenges, userProgress } from "@/db/schema";
+import {
+  GAMIFICATION_RULES,
+  EconomyChangeReason,
+  clampHearts,
+} from "@/lib/gamification-constants";
 
 export const upsertChallengeProgress = async (challengeId: number) => {
   const { userId } = await auth();
-  console.log(userId);
 
   if (!userId) {
     throw new Error("Unauthorized");
@@ -35,18 +39,23 @@ export const upsertChallengeProgress = async (challengeId: number) => {
   const existingChallengeProgress = await db.query.challengeProgress.findFirst({
     where: and(
       eq(challengeProgress.userId, userId),
-      eq(challengeProgress.challengeId, challengeId)
+      eq(challengeProgress.challengeId, challengeId),
     ),
   });
 
-  console.log("existingChallengeProgress : " + existingChallengeProgress);
   const isPractice = !!existingChallengeProgress;
+
+  // TEMP LOG: Track completion attempt
+  console.log(
+    `[HEARTS] upsertChallengeProgress - userId: ${userId}, challengeId: ${challengeId}, isPractice: ${isPractice}, currentHearts: ${currentUserProgress.hearts}`,
+  );
 
   if (currentUserProgress.hearts === 0 && !isPractice) {
     return { error: "hearts" };
   }
 
   if (isPractice) {
+    // Remove duplicate update
     await db
       .update(challengeProgress)
       .set({
@@ -54,20 +63,26 @@ export const upsertChallengeProgress = async (challengeId: number) => {
       })
       .where(eq(challengeProgress.id, existingChallengeProgress.id));
 
-    await db
-      .update(challengeProgress)
-      .set({
-        completed: true,
-      })
-      .where(eq(challengeProgress.id, existingChallengeProgress.id));
+    const heartsBefore = currentUserProgress.hearts;
+    const heartsAfter = clampHearts(
+      heartsBefore + GAMIFICATION_RULES.REWARDS.PRACTICE_HEART_BONUS,
+      false, // Use standard max (5)
+    );
 
     await db
       .update(userProgress)
       .set({
-        hearts: Math.min(currentUserProgress.hearts + 1, 5),
-        points: currentUserProgress.points + 10,
+        hearts: heartsAfter,
+        points:
+          currentUserProgress.points +
+          GAMIFICATION_RULES.POINTS.PRACTICE_COMPLETION,
       })
       .where(eq(userProgress.userId, userId));
+
+    // TEMP LOG: Track practice reward
+    console.log(
+      `[HEARTS] ${EconomyChangeReason.PRACTICE_REWARD} - userId: ${userId}, before: ${heartsBefore}, after: ${heartsAfter}, points: +${GAMIFICATION_RULES.POINTS.PRACTICE_COMPLETION}`,
+    );
 
     revalidatePath("/learn");
     revalidatePath("/lesson");
@@ -81,23 +96,33 @@ export const upsertChallengeProgress = async (challengeId: number) => {
     completed: true,
   });
 
-    const shouldAddHeart = Math.random() < 0.4;
+  const shouldAddHeart =
+    Math.random() < GAMIFICATION_RULES.REWARDS.FIRST_COMPLETION_HEART_CHANCE;
 
-    const updatedHearts = shouldAddHeart
-      ? Math.min(currentUserProgress.hearts + 1, 8)
-      : currentUserProgress.hearts;
+  const heartsBefore = currentUserProgress.hearts;
+  const updatedHearts = shouldAddHeart
+    ? clampHearts(
+        heartsBefore + GAMIFICATION_RULES.REWARDS.FIRST_COMPLETION_HEART_BONUS,
+        true, // Use bonus max (8)
+      )
+    : heartsBefore;
 
   await db
     .update(userProgress)
     .set({
-      points: currentUserProgress.points + 10,
-        hearts: updatedHearts,
+      points:
+        currentUserProgress.points +
+        GAMIFICATION_RULES.POINTS.CHALLENGE_COMPLETION,
+      hearts: updatedHearts,
     })
     .where(eq(userProgress.userId, userId));
+
+  // TEMP LOG: Track first completion
+  console.log(
+    `[HEARTS] ${EconomyChangeReason.FIRST_COMPLETION} - userId: ${userId}, before: ${heartsBefore}, after: ${updatedHearts}, heartBonus: ${shouldAddHeart}, points: +${GAMIFICATION_RULES.POINTS.CHALLENGE_COMPLETION}`,
+  );
 
   revalidatePath("/learn");
   revalidatePath("/lesson");
   revalidatePath(`/lesson/${lessonId}`);
 };
-
-

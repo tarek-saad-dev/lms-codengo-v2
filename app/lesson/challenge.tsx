@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Image from "next/image";
 import dynamic from 'next/dynamic';
 
 const Confetti = dynamic(() => import('react-confetti'), {
@@ -16,7 +15,7 @@ import { Footer } from "./footer";
 import { upsertChallengeProgress } from "@/actions/challenge-progress";
 import { reduceHearts } from "@/actions/user-progress";
 import { useAudio, useWindowSize, useMount } from "react-use";
-import { ResultCard } from "./result-card";
+import { LessonCelebration } from "./lesson-celebration";
 import { useRouter } from "next/navigation";
 import { useHeartsModal } from "@/store/use-hearts-modal";
 import { usePracticeModal } from "@/store/use-practice-modal";
@@ -80,6 +79,7 @@ export const Challenge = ({
 
 
   const [pending, startTransition] = useTransition();
+  const [isCheckingAnswer, setIsCheckingAnswer] = useState(false);
 
   // used in final screen
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -99,9 +99,43 @@ export const Challenge = ({
   });
 
   const challenge = challenges[activeIndex];
-  console.log('Current challenge:', challenge);
-  console.log('Challenge type:', challenge.type);
-  console.log('Word options:', challenge.wordOptions);
+
+  // ALL HOOKS MUST BE DECLARED BEFORE ANY CONDITIONAL RETURNS
+  const [selectedOption, setSelectedOption] = useState<number | undefined>();
+  const [status, setStatus] = useState<"correct" | "wrong" | "none">("none");
+
+  // EARLY RETURN: Show celebration if no challenge exists (lesson completed)
+  if (!challenge) {
+    const xpEarned = challenges.length * 10;
+    const heartsGained = Math.max(0, hearts - initialHearts);
+    const lessonProgress = 100;
+
+    return (
+      <>
+        {finishAudio}
+        {typeof window !== 'undefined' && (
+          <Confetti
+            width={width}
+            height={height}
+            recycle={false}
+            numberOfPieces={500}
+            tweenDuration={10000}
+          />
+        )}
+
+        <LessonCelebration
+          heartsGained={heartsGained}
+          xpEarned={xpEarned}
+          lessonProgress={lessonProgress}
+          onContinue={() => router.push("/learn")}
+          onReview={() => router.push(`/lesson/${lessonId}`)}
+        />
+      </>
+    );
+  }
+
+  // Safe to access challenge properties now
+  const options = challenge.quizOptions ?? [];
 
   // For COMPLETE challenges, use wordOptions instead of quizOptions
   const completeWords = challenge.type === "COMPLETE" && Array.isArray(challenge.wordOptions) ?
@@ -133,18 +167,12 @@ export const Challenge = ({
     });
   };
 
-  // Quiz functionalities
-  const [selectedOption, setSelectedOption] = useState<number | undefined>();
-
-  const [status, setStatus] = useState<"correct" | "wrong" | "none">("none");
-  const options = challenge?.quizOptions ?? [];
-
   const onNext = () => {
     setActiveIndex((current) => current + 1);
   };
 
   const onSelect = (id: number) => {
-    if (status !== "none") return;
+    if (status !== "none" || isCheckingAnswer) return;
     setSelectedOption(id);
   };
 
@@ -164,6 +192,10 @@ export const Challenge = ({
       setSelectedOption(undefined);
       return;
     }
+
+    // Prevent double calls
+    if (isCheckingAnswer) return;
+
     const correctOption = options.find((option) => option.correct);
 
     if (!correctOption) {
@@ -172,11 +204,13 @@ export const Challenge = ({
 
     if (correctOption.id === selectedOption) {
       console.log("Correct option!");
+      setIsCheckingAnswer(true);
       startTransition(() => {
         upsertChallengeProgress(challenge.id)
           .then((response) => {
             if (response?.error === "hearts") {
               openHeartsModal();
+              setIsCheckingAnswer(false);
               return;
             }
 
@@ -190,17 +224,32 @@ export const Challenge = ({
             if (initialPercentage === 100) {
               setHearts((prev) => Math.min(prev + 1, 5));
             }
+            setIsCheckingAnswer(false);
           })
           .catch(() => {
             toast.error("Something went wrong!");
+            setIsCheckingAnswer(false);
           });
       });
     } else {
+      setIsCheckingAnswer(true);
       startTransition(() => {
         reduceHearts(challenge.id)
           .then((response) => {
             if (response?.error === "hearts") {
               openHeartsModal();
+              setIsCheckingAnswer(false);
+              return;
+            }
+
+            // Practice mode - no hearts lost
+            if (response?.error === "practice") {
+              toast.info("Practice mode: no hearts lost", {
+                duration: 2000,
+              });
+              incorrectControls.play();
+              setStatus("wrong");
+              setIsCheckingAnswer(false);
               return;
             }
 
@@ -210,9 +259,11 @@ export const Challenge = ({
             if (!response?.error) {
               setHearts((prev) => Math.max(prev - 1, 0));
             }
+            setIsCheckingAnswer(false);
           })
           .catch(() => {
             toast.error("Something went wrong. Please try again.");
+            setIsCheckingAnswer(false);
           });
       });
     }
@@ -416,6 +467,11 @@ export const Challenge = ({
   }
 
   if (!challenge) {
+    // Calculate rewards
+    const xpEarned = challenges.length * 10;
+    const heartsGained = Math.max(0, hearts - initialHearts);
+    const lessonProgress = 100; // Lesson is complete
+
     return (
       <>
         {finishAudio}
@@ -429,35 +485,12 @@ export const Challenge = ({
           />
         )}
 
-        <div className="flex flex-col gap-y-4 lg:gap-y-8 max-w-lg mx-auto text-center items-center justify-center h-full">
-          <Image
-            src="/finish.svg"
-            alt="Finish"
-            className="hidden lg:block"
-            height={100}
-            width={100}
-          />
-          <Image
-            src="/finish.svg"
-            alt="Finish"
-            className="block lg:hidden"
-            height={50}
-            width={50}
-          />
-          <h1 className="text-xl lg:text-3xl font-bold text-neutral-700">
-            Great job! <br /> You&apos;ve completed the lesson.
-          </h1>
-
-          <div className="flex items-center gap-x-4 w-full">
-            <ResultCard variant="points" value={challenges.length * 10} />
-            <ResultCard variant="hearts" value={hearts} />
-          </div>
-        </div>
-
-        <Footer
-          lessonId={lessonId}
-          status="completed"
-          onCheck={() => router.push("/learn")}
+        <LessonCelebration
+          heartsGained={heartsGained}
+          xpEarned={xpEarned}
+          lessonProgress={lessonProgress}
+          onContinue={() => router.push("/learn")}
+          onReview={() => router.push(`/lesson/${lessonId}`)}
         />
       </>
     );
@@ -523,10 +556,11 @@ export const Challenge = ({
                     type={challenge.type}
                   />
                   <Footer
-                    disabled={pending || !selectedOption}
-                    status={status}
                     onCheck={onContinue}
-                    explanation={status === "correct" ? challenge.explanation ?? undefined : undefined}
+                    status={status}
+                    disabled={!selectedOption || pending || isCheckingAnswer}
+                    lessonId={lessonId}
+                    explanation={challenge.explanation || undefined}
                   />
                 </>
               )}
