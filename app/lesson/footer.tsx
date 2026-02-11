@@ -3,11 +3,11 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useKey, useMedia } from "react-use";
-import { CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle, XCircle } from "lucide-react";
 import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { InstantButton } from "@/components/ui/instant-button";
 
 type Props = {
   onCheck: () => void;
@@ -17,7 +17,6 @@ type Props = {
   explanation?: string;
 };
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export const Footer = ({ onCheck, status, disabled, lessonId, explanation }: Props) => {
   const router = useRouter();
   const [isNavigating, setIsNavigating] = useState(false);
@@ -81,37 +80,36 @@ export const Footer = ({ onCheck, status, disabled, lessonId, explanation }: Pro
             </div>
           )}
           {status === "completed" && (
-            <Button
+            <InstantButton
               variant="default"
               size={isMobile ? "sm" : "lg"}
-              onClick={handlePracticeAgain}
-              onMouseEnter={handlePrefetchLesson}
+              onAsyncClick={async () => {
+                handlePrefetchLesson();
+                handlePracticeAgain();
+              }}
+              enableSound={true}
+              enableVibration={true}
               disabled={isNavigating || isPending}
             >
-              {isNavigating || isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                "Practice again"
-              )}
-            </Button>
+              Practice again
+            </InstantButton>
           )}
         </div>
 
-        <Button
+        <InstantButton
           disabled={disabled}
           className="w-auto"
           onClick={onCheck}
           size={isMobile ? "sm" : "lg"}
           variant={status === "wrong" ? "danger" : "secondary"}
+          enableSound={true}
+          enableVibration={true}
         >
           {status === "none" && "Check"}
           {status === "correct" && "Next"}
           {status === "wrong" && "Retry"}
           {status === "completed" && "Continue"}
-        </Button>
+        </InstantButton>
       </div>
     </footer>
   );

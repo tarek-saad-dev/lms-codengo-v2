@@ -6,6 +6,7 @@ import { ExitModal } from "@/components/modals/exit.modal";
 import { HeartsModal } from "@/components/modals/hearts-modal";
 import { PracticeModal } from "@/components/modals/practice-modal";
 import ClientProviders from "@/components/providers/ClientProviders";
+import NextTopLoader from "nextjs-toploader";
 
 const font = Nunito({
   subsets: ["latin"],
@@ -25,6 +26,13 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en">
         <body className={font.className}>
+          <NextTopLoader
+            color="#22c55e"
+            height={3}
+            showSpinner={false}
+            speed={200}
+            shadow="0 0 10px #22c55e,0 0 5px #22c55e"
+          />
           <ClientProviders>
             <ExitModal />
             <HeartsModal />

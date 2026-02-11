@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-import { Button } from '@/components/ui/button';
+import { InstantButton } from '@/components/ui/instant-button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Heart, Coins, Gift } from 'lucide-react';
 import { toast } from 'sonner';
@@ -42,7 +42,7 @@ export function ShopClient({ initialCoins, initialHearts }: Props) {
     if (coins >= 10) {
       setSpinning(true);
       setPrize(null);
-      
+
       // Simulate wheel spinning
       setTimeout(async () => {
         const result = await spinWheelAction();
@@ -119,14 +119,16 @@ export function ShopClient({ initialCoins, initialHearts }: Props) {
                   <Coins className="h-4 w-4 text-app-yellow" />
                   <span className="font-bold">{prices.oneHeart}</span>
                 </div>
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  onClick={() => buyHearts(1, prices.oneHeart)}
+                <InstantButton
+                  variant="default"
+                  size="sm"
+                  onAsyncClick={() => buyHearts(1, prices.oneHeart)}
                   disabled={coins < prices.oneHeart}
+                  enableSound={true}
+                  enableVibration={true}
                 >
                   Buy
-                </Button>
+                </InstantButton>
               </CardFooter>
             </Card>
 
@@ -144,14 +146,16 @@ export function ShopClient({ initialCoins, initialHearts }: Props) {
                   <Coins className="h-4 w-4 text-app-yellow" />
                   <span className="font-bold">{prices.threeHearts}</span>
                 </div>
-                <Button 
-                  variant="default" 
-                  size="sm" 
-                  onClick={() => buyHearts(3, prices.threeHearts)}
+                <InstantButton
+                  variant="default"
+                  size="sm"
+                  onAsyncClick={() => buyHearts(3, prices.threeHearts)}
                   disabled={coins < prices.threeHearts}
+                  enableSound={true}
+                  enableVibration={true}
                 >
                   Buy
-                </Button>
+                </InstantButton>
               </CardFooter>
             </Card>
 
@@ -171,14 +175,16 @@ export function ShopClient({ initialCoins, initialHearts }: Props) {
                   <Coins className="h-4 w-4 text-app-yellow" />
                   <span className="font-bold">{prices.fiveHearts}</span>
                 </div>
-                <Button 
-                  variant="default" 
+                <InstantButton
+                  variant="default"
                   size="sm"
-                  onClick={() => buyHearts(5, prices.fiveHearts)}
+                  onAsyncClick={() => buyHearts(5, prices.fiveHearts)}
                   disabled={coins < prices.fiveHearts}
+                  enableSound={true}
+                  enableVibration={true}
                 >
                   Buy
-                </Button>
+                </InstantButton>
               </CardFooter>
             </Card>
           </CardContent>
@@ -204,7 +210,7 @@ export function ShopClient({ initialCoins, initialHearts }: Props) {
               </div>
               <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-4 w-6 h-8 bg-app-blue clip-path-triangle"></div>
             </div>
-            
+
             {prize && (
               <div className="mb-4 text-center">
                 <h3 className="text-xl font-bold mb-2">You won!</h3>
@@ -219,13 +225,16 @@ export function ShopClient({ initialCoins, initialHearts }: Props) {
                 <Coins className="h-5 w-5 text-app-yellow" />
                 <span className="font-bold">10 coins per spin</span>
               </p>
-              <Button 
-                onClick={spinWheel} 
+              <InstantButton
+                onAsyncClick={spinWheel}
                 disabled={spinning || coins < 10}
                 className="w-32"
+                enableSound={true}
+                enableVibration={true}
+                minLoadingDuration={3000}
               >
-                {spinning ? "Spinning..." : "Spin"}
-              </Button>
+                Spin
+              </InstantButton>
             </div>
           </CardContent>
         </Card>

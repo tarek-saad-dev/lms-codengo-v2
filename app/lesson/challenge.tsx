@@ -15,7 +15,7 @@ import { Footer } from "./footer";
 import { upsertChallengeProgress } from "@/actions/challenge-progress";
 import { reduceHearts } from "@/actions/user-progress";
 import { useAudio, useWindowSize, useMount } from "react-use";
-import { LessonCelebration } from "./lesson-celebration";
+import { LessonEndScreen } from "./lesson-end-screen";
 import { useRouter } from "next/navigation";
 import { useHeartsModal } from "@/store/use-hearts-modal";
 import { usePracticeModal } from "@/store/use-practice-modal";
@@ -24,36 +24,38 @@ import { TextChallenge } from "./text-challenge";
 import { ImageChallenge } from "./image-challenge";
 import { CompleteChallenge } from "./complete-challenge";
 import { WriteChallenge } from "./write-challenge";
-import { Loader2 } from "lucide-react";
+import { ChallengeSkeleton } from "@/components/ui/challenge-skeleton";
+import { useChallengePrefetch } from "./use-challenge-prefetch";
+import { useNextLessonPrefetch } from "./use-next-lesson-prefetch";
 
 // Phase 2: Dynamic import heavy challenge types to reduce initial bundle
 const VideoChallenge = dynamic(() => import("./video-challenge").then(m => ({ default: m.VideoChallenge })), {
-  loading: () => <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-green-600" /></div>,
+  loading: () => <ChallengeSkeleton />,
   ssr: false
 });
 
 const PdfChallenge = dynamic(() => import("./pdf-challenge").then(m => ({ default: m.PdfChallenge })), {
-  loading: () => <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-green-600" /></div>,
+  loading: () => <ChallengeSkeleton />,
   ssr: false
 });
 
 const CodeChallenge = dynamic(() => import("./code-challenge").then(m => ({ default: m.CodeChallenge })), {
-  loading: () => <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-green-600" /></div>,
+  loading: () => <ChallengeSkeleton />,
   ssr: false
 });
 
 const WebView = dynamic(() => import("./web-view").then(m => ({ default: m.WebView })), {
-  loading: () => <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-green-600" /></div>,
+  loading: () => <ChallengeSkeleton />,
   ssr: false
 });
 
 const AudioChallenge = dynamic(() => import("./audio-challenge").then(m => ({ default: m.AudioChallenge })), {
-  loading: () => <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-green-600" /></div>,
+  loading: () => <ChallengeSkeleton />,
   ssr: false
 });
 
 const ProjectV3Challenge = dynamic(() => import("./projectv3-challenge"), {
-  loading: () => <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-green-600" /></div>,
+  loading: () => <ChallengeSkeleton />,
   ssr: false
 });
 
@@ -107,6 +109,11 @@ export const Challenge = ({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [lessonId, setLessonId] = useState(initialLessonId);
 
+  // Phase 5: Lesson End Screen state management
+  // This flag ensures the end screen shows only once and prevents double renders
+  const [showLessonEndScreen, setShowLessonEndScreen] = useState(false);
+  const [isNavigatingFromEndScreen, setIsNavigatingFromEndScreen] = useState(false);
+
   // Phase 3: Optimistic UI state
   const [hearts, setHearts] = useState(initialHearts);
   const [percentage, setPercentage] = useState(() => {
@@ -137,11 +144,49 @@ export const Challenge = ({
   const [selectedOption, setSelectedOption] = useState<number | undefined>();
   const [status, setStatus] = useState<"correct" | "wrong" | "none">("none");
 
-  // EARLY RETURN: Show celebration if no challenge exists (lesson completed)
-  if (!challenge) {
+  // Phase 4: Aggressive challenge-to-challenge prefetching
+  // Prefetch N+1 and N+2 challenges, preload heavy components
+  useChallengePrefetch({
+    challenges: challenges.map(c => ({ id: c.id, type: c.type, order: c.order })),
+    activeIndex,
+    lessonId,
+    onLastChallenge: activeIndex === challenges.length - 1,
+  });
+
+  // Phase 4: Next lesson prefetching
+  // Prefetch next lesson when user is near the end (2 challenges before completion)
+  useNextLessonPrefetch({
+    currentLessonId: lessonId,
+    activeIndex,
+    totalChallenges: challenges.length,
+    triggerThreshold: 2,
+  });
+
+  // EARLY RETURN: Show lesson end screen if no challenge exists (lesson completed)
+  // Trigger condition: activeIndex >= challenges.length AND percentage === 100%
+  // Double render prevention: showLessonEndScreen flag set only once
+  if (!challenge && !showLessonEndScreen) {
+    // Set flag to show end screen (this happens only once)
+    setShowLessonEndScreen(true);
+  }
+
+  if (showLessonEndScreen) {
     const xpEarned = challenges.length * 10;
     const heartsGained = Math.max(0, hearts - initialHearts);
     const lessonProgress = 100;
+    const challengesCompleted = challenges.filter(c => c.completed).length;
+
+    const handleContinue = async () => {
+      setIsNavigatingFromEndScreen(true);
+      // Small delay to ensure loading state is visible
+      await new Promise(resolve => setTimeout(resolve, 100));
+      router.push("/learn");
+    };
+
+    const handleBackToLessons = () => {
+      setIsNavigatingFromEndScreen(true);
+      router.push("/learn");
+    };
 
     return (
       <>
@@ -156,12 +201,15 @@ export const Challenge = ({
           />
         )}
 
-        <LessonCelebration
+        <LessonEndScreen
           heartsGained={heartsGained}
           xpEarned={xpEarned}
+          challengesCompleted={challengesCompleted}
+          totalChallenges={challenges.length}
           lessonProgress={lessonProgress}
-          onContinue={() => router.push("/learn")}
-          onReview={() => router.push(`/lesson/${lessonId}`)}
+          onContinue={handleContinue}
+          onBackToLessons={handleBackToLessons}
+          isNavigating={isNavigatingFromEndScreen}
         />
       </>
     );
@@ -511,36 +559,6 @@ export const Challenge = ({
           />
         </div>
       </div>
-    );
-  }
-
-  if (!challenge) {
-    // Calculate rewards
-    const xpEarned = challenges.length * 10;
-    const heartsGained = Math.max(0, hearts - initialHearts);
-    const lessonProgress = 100; // Lesson is complete
-
-    return (
-      <>
-        {finishAudio}
-        {typeof window !== 'undefined' && (
-          <Confetti
-            width={width}
-            height={height}
-            recycle={false}
-            numberOfPieces={500}
-            tweenDuration={10000}
-          />
-        )}
-
-        <LessonCelebration
-          heartsGained={heartsGained}
-          xpEarned={xpEarned}
-          lessonProgress={lessonProgress}
-          onContinue={() => router.push("/learn")}
-          onReview={() => router.push(`/lesson/${lessonId}`)}
-        />
-      </>
     );
   }
 

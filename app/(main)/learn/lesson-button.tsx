@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Crown, Star, Loader2 } from "lucide-react";
+import { Check, Crown, Star } from "lucide-react";
 import { CircularProgressbarWithChildren } from "react-circular-progressbar";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
+import { InstantButton } from "@/components/ui/instant-button";
 import { Tooltip } from "./components/ui/tooltip";
 import { toast } from "sonner";
 import "react-circular-progressbar/dist/styles.css";
@@ -60,13 +60,11 @@ export const LessonButton = ({
 
   const href = isCompleted ? `/lesson/${id}` : "/lesson";
 
-  const handleClick = (e: React.MouseEvent) => {
+  const handleClick = async () => {
     if (locked || isNavigating) {
-      e.preventDefault();
       return;
     }
 
-    e.preventDefault();
     setIsNavigating(true);
 
     startTransition(() => {
@@ -107,7 +105,6 @@ export const LessonButton = ({
       }
     >
       <div
-        onClick={handleClick}
         onMouseEnter={handlePrefetch}
         style={{ cursor: locked ? "not-allowed" : "pointer" }}
       >
@@ -135,48 +132,48 @@ export const LessonButton = ({
                   },
                 }}
               >
-                <Button
+                <InstantButton
                   size="rounded"
                   variant={locked ? "locked" : "secondary"}
                   className="h-[70px] w-[70px] border-b-8"
-                  disabled={isNavigating || isPending}
+                  disabled={isNavigating || isPending || locked}
+                  onAsyncClick={handleClick}
+                  enableSound={!locked}
+                  enableVibration={!locked}
+                  minLoadingDuration={200}
                 >
-                  {isNavigating || isPending ? (
-                    <Loader2 className="h-10 w-10 animate-spin text-primary-foreground" />
-                  ) : (
-                    <Icon
-                      className={cn(
-                        "h-10 w-10",
-                        locked
-                          ? "fill-neutral-400 text-neutral-400 stroke-neutral-400"
-                          : "fill-primary-foreground text-primary-foreground",
-                      )}
-                    />
-                  )}
-                </Button>
+                  <Icon
+                    className={cn(
+                      "h-10 w-10",
+                      locked
+                        ? "fill-neutral-400 text-neutral-400 stroke-neutral-400"
+                        : "fill-primary-foreground text-primary-foreground",
+                    )}
+                  />
+                </InstantButton>
               </CircularProgressbarWithChildren>
             </div>
           ) : (
-            <Button
+            <InstantButton
               size="rounded"
               variant={locked ? "locked" : "secondary"}
               className="h-[70px] w-[70px] border-b-8"
-              disabled={isNavigating || isPending}
+              disabled={isNavigating || isPending || locked}
+              onAsyncClick={handleClick}
+              enableSound={!locked}
+              enableVibration={!locked}
+              minLoadingDuration={200}
             >
-              {isNavigating || isPending ? (
-                <Loader2 className="h-10 w-10 animate-spin text-primary-foreground" />
-              ) : (
-                <Icon
-                  className={cn(
-                    "h-10 w-10",
-                    locked
-                      ? "fill-neutral-400 text-neutral-400 stroke-neutral-400"
-                      : "fill-primary-foreground text-primary-foreground",
-                    isCompleted && "fill-none stroke-[4]"
-                  )}
-                />
-              )}
-            </Button>
+              <Icon
+                className={cn(
+                  "h-10 w-10",
+                  locked
+                    ? "fill-neutral-400 text-neutral-400 stroke-neutral-400"
+                    : "fill-primary-foreground text-primary-foreground",
+                  isCompleted && "fill-none stroke-[4]"
+                )}
+              />
+            </InstantButton>
           )}
         </div>
       </div>
