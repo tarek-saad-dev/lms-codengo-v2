@@ -5,6 +5,9 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { Badge } from "@/components/ui/badge";
 import { getLeaderboard } from "@/actions/get-leaderboard";
 
+// Phase 3: ISR - Cache leaderboard for 30 seconds
+export const revalidate = 30;
+
 interface LeaderboardUser {
   id: string;
   name: string;
@@ -124,7 +127,7 @@ export default async function LeaderboardPage() {
               </TableHeader>
               <TableBody>
                 {users.map((user, index) => (
-                  <TableRow 
+                  <TableRow
                     key={user.id}
                     className={user.isCurrentUser ? "bg-app-green-light border-l-4 border-app-green" : ""}
                   >

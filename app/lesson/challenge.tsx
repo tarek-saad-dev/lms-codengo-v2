@@ -107,9 +107,20 @@ export const Challenge = ({
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [lessonId, setLessonId] = useState(initialLessonId);
 
+  // Phase 3: Optimistic UI state
   const [hearts, setHearts] = useState(initialHearts);
   const [percentage, setPercentage] = useState(() => {
     return initialPercentage === 100 ? 0 : initialPercentage;
+  });
+
+  // Phase 3: Prefetch next lesson when component mounts
+  useMount(() => {
+    const currentChallengeIndex = challenges.findIndex(c => c.id === challenge?.id);
+    const isLastChallenge = currentChallengeIndex === challenges.length - 1;
+    if (isLastChallenge) {
+      // Prefetch /learn for lesson completion
+      router.prefetch('/learn');
+    }
   });
 
   const [challenges] = useState(initialLessonChallenges);
@@ -227,10 +238,22 @@ export const Challenge = ({
     if (correctOption.id === selectedOption) {
       console.log("Correct option!");
       setIsCheckingAnswer(true);
+
+      // Phase 3: Optimistic UI update
+      const optimisticPercentage = percentage + 100 / challenges.length;
+      const optimisticHearts = initialPercentage === 100 ? Math.min(hearts + 1, 5) : hearts;
+      setPercentage(optimisticPercentage);
+      if (initialPercentage === 100) {
+        setHearts(optimisticHearts);
+      }
+
       startTransition(() => {
         upsertChallengeProgress(challenge.id, lessonId)
           .then((response) => {
             if (response?.error === "hearts") {
+              // Rollback optimistic update
+              setPercentage(percentage);
+              setHearts(hearts);
               openHeartsModal();
               setIsCheckingAnswer(false);
               return;
@@ -238,27 +261,30 @@ export const Challenge = ({
 
             correctControls.play();
             setStatus("correct");
-
-            setPercentage((prev) => prev + 100 / challenges.length);
-            console.log("Percentage:", percentage);
-
-            // This is a practice
-            if (initialPercentage === 100) {
-              setHearts((prev) => Math.min(prev + 1, 5));
-            }
+            console.log("Percentage:", optimisticPercentage);
             setIsCheckingAnswer(false);
           })
           .catch(() => {
+            // Phase 3: Rollback optimistic update on error
+            setPercentage(percentage);
+            setHearts(hearts);
             toast.error("Something went wrong!");
             setIsCheckingAnswer(false);
           });
       });
     } else {
       setIsCheckingAnswer(true);
+
+      // Phase 3: Optimistic UI update for hearts reduction
+      const optimisticHearts = Math.max(hearts - 1, 0);
+      setHearts(optimisticHearts);
+
       startTransition(() => {
         reduceHearts(challenge.id, lessonId)
           .then((response) => {
             if (response?.error === "hearts") {
+              // Rollback optimistic update
+              setHearts(hearts);
               openHeartsModal();
               setIsCheckingAnswer(false);
               return;
@@ -266,6 +292,8 @@ export const Challenge = ({
 
             // Practice mode - no hearts lost
             if (response?.error === "practice") {
+              // Rollback optimistic update for practice mode
+              setHearts(hearts);
               toast.info("Practice mode: no hearts lost", {
                 duration: 2000,
               });
@@ -277,14 +305,12 @@ export const Challenge = ({
 
             incorrectControls.play();
             setStatus("wrong");
-
-            if (!response?.error) {
-              setHearts((prev) => Math.max(prev - 1, 0));
-            }
             setIsCheckingAnswer(false);
           })
           .catch(() => {
-            toast.error("Something went wrong. Please try again.");
+            // Phase 3: Rollback optimistic update on error
+            setHearts(hearts);
+            toast.error("Something went wrong!");
             setIsCheckingAnswer(false);
           });
       });

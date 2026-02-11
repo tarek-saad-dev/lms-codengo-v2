@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { unstable_cache } from "next/cache";
 import { auth } from "@clerk/nextjs/server";
 
 import {
@@ -12,6 +13,7 @@ import db from "./drizzle";
 
 import { eq, or, and } from "drizzle-orm";
 
+// Phase 3: Add tags for cache invalidation
 export const getUserProgress = cache(async () => {
   const { userId } = await auth();
 
@@ -50,13 +52,22 @@ export const getCourses = cache(async () => {
   return userCourses;
 });
 
+// Phase 3: Cache stable course content with 5-minute revalidation
 export const getCourseById = cache(async (courseId: number) => {
-  const data = await db.query.courses.findFirst({
-    where: eq(courses.id, courseId),
-    // TODO: Populate units and lessons
-  });
-
-  return data;
+  return unstable_cache(
+    async () => {
+      const data = await db.query.courses.findFirst({
+        where: eq(courses.id, courseId),
+        // TODO: Populate units and lessons
+      });
+      return data;
+    },
+    [`course:${courseId}`],
+    {
+      revalidate: 300, // 5 minutes
+      tags: [`course:${courseId}`],
+    },
+  )();
 });
 
 export const getUnits = cache(async () => {

@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm";
 import { challengeProgress, userProgress } from "@/db/schema";
 import { redirect } from "next/navigation";
 import { getCourseById, getUserProgress } from "@/db/queries";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import db from "@/db/drizzle";
 import {
   GAMIFICATION_RULES,
@@ -54,8 +54,9 @@ export const setActiveCourse = async (courseId: number) => {
     });
   }
 
-  revalidatePath("/courses");
-  revalidatePath("/learn");
+  // Phase 3: Use revalidateTag for granular cache invalidation
+  revalidateTag(`user-progress:${userId}`);
+  revalidateTag(`course-progress:${userId}:${courseId}`);
   redirect("/learn");
 };
 
@@ -115,7 +116,11 @@ export const reduceHearts = async (challengeId: number, lessonId: number) => {
     `[HEARTS] ${EconomyChangeReason.WRONG_ANSWER} - userId: ${userId}, before: ${heartsBefore}, after: ${heartsAfter}`,
   );
 
-  revalidatePath("/learn");
-  revalidatePath(`/lesson/${lessonId}`);
+  // Phase 3: Use revalidateTag for granular cache invalidation
+  revalidateTag(`user-progress:${userId}`);
+  revalidateTag(
+    `course-progress:${userId}:${currentUserProgress.activeCourseId}`,
+  );
+  revalidateTag(`lesson:${lessonId}`);
   return { success: true };
 };

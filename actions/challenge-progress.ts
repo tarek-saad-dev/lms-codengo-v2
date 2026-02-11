@@ -1,7 +1,7 @@
 "use server";
 
 import { auth } from "@clerk/nextjs/server";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 
 import db from "@/db/drizzle";
 import { and, eq } from "drizzle-orm";
@@ -117,7 +117,10 @@ export const upsertChallengeProgress = async (
     `[HEARTS] ${EconomyChangeReason.FIRST_COMPLETION} - userId: ${userId}, before: ${heartsBefore}, after: ${updatedHearts}, heartBonus: ${shouldAddHeart}, points: +${GAMIFICATION_RULES.POINTS.CHALLENGE_COMPLETION}`,
   );
 
-  revalidatePath("/learn");
-  revalidatePath("/lesson");
-  revalidatePath(`/lesson/${lessonId}`);
+  revalidateTag(`user-progress:${userId}`);
+  revalidateTag(
+    `course-progress:${userId}:${currentUserProgress.activeCourseId}`,
+  );
+  revalidateTag(`lesson:${lessonId}`);
+  revalidateTag("leaderboard");
 };
