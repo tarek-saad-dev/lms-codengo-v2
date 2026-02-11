@@ -1,7 +1,13 @@
 import { cache } from "react";
 import { auth } from "@clerk/nextjs/server";
 
-import { challengeProgress, courses, lessons, units, userProgress } from "./schema";
+import {
+  challengeProgress,
+  courses,
+  lessons,
+  units,
+  userProgress,
+} from "./schema";
 import db from "./drizzle";
 
 import { eq, or, and } from "drizzle-orm";
@@ -29,7 +35,7 @@ export const getCourses = cache(async () => {
   if (!userId) {
     // If no user is logged in, only show global courses
     return await db.query.courses.findMany({
-      where: eq(courses.type, "GLOBAL")
+      where: eq(courses.type, "GLOBAL"),
     });
   }
 
@@ -37,11 +43,8 @@ export const getCourses = cache(async () => {
   const userCourses = await db.query.courses.findMany({
     where: or(
       eq(courses.type, "GLOBAL"),
-      and(
-        eq(courses.type, "CUSTOMIZE"),
-        eq(courses.makerId, userId)
-      )
-    )
+      and(eq(courses.type, "CUSTOMIZE"), eq(courses.makerId, userId)),
+    ),
   });
 
   return userCourses;
@@ -86,13 +89,10 @@ export const getUnits = cache(async () => {
   });
 
   const normalizedData = data.map((unit) => {
-    
     const lessonsWithCompletedStatus = unit.lessons.map((lesson) => {
-
       if (lesson.challenges.length === 0) {
         return { ...lesson, completed: false };
       }
-      
 
       const allCompletedChallenges = lesson.challenges.every((challenge) => {
         return (
@@ -110,7 +110,9 @@ export const getUnits = cache(async () => {
   return normalizedData;
 });
 
-export const updateUserProgress = async (data: Partial<typeof userProgress.$inferInsert>) => {
+export const updateUserProgress = async (
+  data: Partial<typeof userProgress.$inferInsert>,
+) => {
   const { userId } = await auth();
 
   if (!userId) {
@@ -125,7 +127,8 @@ export const updateUserProgress = async (data: Partial<typeof userProgress.$infe
     return false;
   }
 
-  await db.update(userProgress)
+  await db
+    .update(userProgress)
     .set(data)
     .where(eq(userProgress.userId, userId));
 
@@ -149,12 +152,6 @@ export const getCourseProgress = cache(async () => {
           unit: true,
           challenges: {
             with: {
-              quizOptions: {
-                orderBy: (quizOptions, { asc }) => [asc(quizOptions.id)]
-              },
-              wordOptions: {
-                orderBy: (wordOptions, { asc }) => [asc(wordOptions.order)]
-              },
               challengeProgress: {
                 where: eq(challengeProgress.userId, userId),
               },
@@ -166,15 +163,18 @@ export const getCourseProgress = cache(async () => {
   });
 
   const firstUncompletedLesson = unitsInActiveCourse
-  .flatMap(unit => unit.lessons)
-  .find(lesson => {
-    return lesson.challenges.some(challenge => {
-      return !challenge.challengeProgress 
-        || challenge.challengeProgress.length === 0
-        || challenge.challengeProgress.some(progress => progress.completed === false);
+    .flatMap((unit) => unit.lessons)
+    .find((lesson) => {
+      return lesson.challenges.some((challenge) => {
+        return (
+          !challenge.challengeProgress ||
+          challenge.challengeProgress.length === 0 ||
+          challenge.challengeProgress.some(
+            (progress) => progress.completed === false,
+          )
+        );
+      });
     });
-  });
-
 
   return {
     activelesson: firstUncompletedLesson,
@@ -190,12 +190,12 @@ export const getLesson = cache(async (id?: number) => {
   }
 
   const courseProgress = await getCourseProgress();
-  const lessonId = id || courseProgress?.activelessonId;  
-  
+  const lessonId = id || courseProgress?.activelessonId;
+
   if (!lessonId) {
     return null;
   }
-  
+
   const data = await db.query.lessons.findFirst({
     where: eq(lessons.id, lessonId),
     with: {
@@ -203,51 +203,54 @@ export const getLesson = cache(async (id?: number) => {
         orderBy: (challenges, { asc }) => [asc(challenges.order)],
         with: {
           quizOptions: {
-            orderBy: (quizOptions, { asc }) => [asc(quizOptions.id)]
+            orderBy: (quizOptions, { asc }) => [asc(quizOptions.id)],
           },
           wordOptions: {
-            orderBy: (wordOptions, { asc }) => [asc(wordOptions.order)]
+            orderBy: (wordOptions, { asc }) => [asc(wordOptions.order)],
           },
           challengeProgress: {
             where: eq(challengeProgress.userId, userId),
-          }
-        }
-      }
-    }
+          },
+        },
+      },
+    },
   });
 
-  if(!data || !data.challenges) {
+  if (!data || !data.challenges) {
     return null;
   }
 
-
   const normalizedChallenges = data.challenges.map((challenge) => {
-    const completed = challenge.challengeProgress
-      && challenge.challengeProgress.length > 0
-      && challenge.challengeProgress.every((progress) => progress.completed);
+    const completed =
+      challenge.challengeProgress &&
+      challenge.challengeProgress.length > 0 &&
+      challenge.challengeProgress.every((progress) => progress.completed);
     return { ...challenge, completed };
   });
-  
+
   return { ...data, challenges: normalizedChallenges };
-  
 });
 
 export const getLessonPercentage = cache(async () => {
   const courseProgress = await getCourseProgress();
-  
+
   if (!courseProgress?.activelessonId) {
     return 0;
   }
-  
+
   const lesson = await getLesson(courseProgress.activelessonId);
-  
+
   if (!lesson) {
     return 0;
   }
-  
-  const completedChallenges = lesson.challenges.filter((challenge) => challenge.completed);
-  const percentage = Math.round((completedChallenges.length / lesson.challenges.length) * 100);
-  
+
+  const completedChallenges = lesson.challenges.filter(
+    (challenge) => challenge.completed,
+  );
+  const percentage = Math.round(
+    (completedChallenges.length / lesson.challenges.length) * 100,
+  );
+
   return percentage;
 });
 
@@ -257,7 +260,9 @@ export const getGlobalCoursesAndCategories = cache(async () => {
   });
 
   // Extract unique categories from global courses
-  const categories = Array.from(new Set(globalCourses.map(course => course.category)));
+  const categories = Array.from(
+    new Set(globalCourses.map((course) => course.category)),
+  );
 
   return {
     courses: globalCourses,
@@ -274,18 +279,17 @@ export const assignCoursesToUser = async (courseIds: number[]) => {
 
   // Get the courses to update
   const coursesToUpdate = await db.query.courses.findMany({
-    where: or(
-      ...courseIds.map(id => eq(courses.id, id))
-    )
+    where: or(...courseIds.map((id) => eq(courses.id, id))),
   });
 
   // Update each course's assignedTo array
   for (const course of coursesToUpdate) {
     const currentAssignedTo = course.assignedTo || [];
     if (!currentAssignedTo.includes(userId)) {
-      await db.update(courses)
+      await db
+        .update(courses)
         .set({
-          assignedTo: [...currentAssignedTo, userId]
+          assignedTo: [...currentAssignedTo, userId],
         })
         .where(eq(courses.id, course.id));
     }
@@ -293,5 +297,3 @@ export const assignCoursesToUser = async (courseIds: number[]) => {
 
   return coursesToUpdate;
 };
-
-

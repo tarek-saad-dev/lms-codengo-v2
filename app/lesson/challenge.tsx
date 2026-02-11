@@ -74,10 +74,6 @@ export const Challenge = ({
     src: "/incorrect.wav",
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [audio, controls] = useAudio({ src: "/correct.wav" });
-
-
   const [pending, startTransition] = useTransition();
   const [isCheckingAnswer, setIsCheckingAnswer] = useState(false);
 
