@@ -7,10 +7,7 @@ import { redirect } from "next/navigation";
 import { getCourseById, getUserProgress } from "@/db/queries";
 import { revalidatePath, revalidateTag } from "next/cache";
 import db from "@/db/drizzle";
-import {
-  GAMIFICATION_RULES,
-  EconomyChangeReason,
-} from "@/lib/gamification-constants";
+import { grantReward } from "@/lib/economy";
 
 export const setActiveCourse = async (courseId: number) => {
   const { userId } = await auth();
@@ -67,7 +64,6 @@ export const reduceHearts = async (challengeId: number, lessonId: number) => {
     throw new Error("Unauthorized");
   }
 
-  // Phase 2: Parallelize independent DB queries
   const [currentUserProgress, existingChallengeProgress] = await Promise.all([
     getUserProgress(),
     db.query.challengeProgress.findFirst({
@@ -80,13 +76,7 @@ export const reduceHearts = async (challengeId: number, lessonId: number) => {
 
   const isPractice = !!existingChallengeProgress;
 
-  // TEMP LOG: Track practice mode
-  console.log(
-    `[HEARTS] reduceHearts called - userId: ${userId}, challengeId: ${challengeId}, isPractice: ${isPractice}`,
-  );
-
   if (isPractice) {
-    console.log(`[HEARTS] Practice mode - no hearts reduced`);
     return { error: "practice" };
   }
 
@@ -94,29 +84,16 @@ export const reduceHearts = async (challengeId: number, lessonId: number) => {
     throw new Error("User progress not found");
   }
 
-  const heartsBefore = currentUserProgress.hearts;
-
-  if (heartsBefore === 0) {
-    console.log(`[HEARTS] Already at 0 hearts - blocking`);
+  if (currentUserProgress.hearts === 0) {
     return { error: "hearts" };
   }
 
-  // Atomic update with clamping to prevent negative hearts
-  const heartsAfter = Math.max(heartsBefore - 1, GAMIFICATION_RULES.HEARTS.MIN);
+  await grantReward(userId, { hearts: -1 }, "CHALLENGE_FAIL", {
+    challengeId,
+    lessonId,
+    idempotencyKey: `challenge:${challengeId}:fail:${userId}:${Date.now()}`,
+  });
 
-  await db
-    .update(userProgress)
-    .set({
-      hearts: heartsAfter,
-    })
-    .where(eq(userProgress.userId, userId));
-
-  // TEMP LOG: Track hearts change
-  console.log(
-    `[HEARTS] ${EconomyChangeReason.WRONG_ANSWER} - userId: ${userId}, before: ${heartsBefore}, after: ${heartsAfter}`,
-  );
-
-  // Phase 3: Use revalidateTag for granular cache invalidation
   revalidateTag(`user-progress:${userId}`);
   revalidateTag(
     `course-progress:${userId}:${currentUserProgress.activeCourseId}`,

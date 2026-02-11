@@ -5,6 +5,9 @@ import {
   serial,
   text,
   varchar,
+  timestamp,
+  jsonb,
+  index,
 } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
 import { integer } from "drizzle-orm/pg-core";
@@ -14,6 +17,15 @@ export const courseCategoryEnum = pgEnum("course_category", [
   "programming",
   "design",
   "data",
+]);
+export const rewardSourceEnum = pgEnum("reward_source", [
+  "LESSON_COMPLETE",
+  "CHALLENGE_SUCCESS",
+  "CHALLENGE_FAIL",
+  "PRACTICE",
+  "SHOP_PURCHASE",
+  "SYSTEM_ADJUST",
+  "MIGRATION",
 ]);
 
 export const courses = pgTable("courses", {
@@ -229,3 +241,33 @@ export const userProgressRelations = relations(userProgress, ({ one }) => ({
     references: [courses.id],
   }),
 }));
+
+export const rewardEvents = pgTable(
+  "reward_events",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    source: rewardSourceEnum("source").notNull(),
+    deltaHearts: integer("delta_hearts").notNull().default(0),
+    deltaXp: integer("delta_xp").notNull().default(0),
+    deltaCoins: integer("delta_coins").notNull().default(0),
+    beforeHearts: integer("before_hearts"),
+    afterHearts: integer("after_hearts"),
+    beforeXp: integer("before_xp"),
+    afterXp: integer("after_xp"),
+    beforeCoins: integer("before_coins"),
+    afterCoins: integer("after_coins"),
+    meta: jsonb("meta"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdCreatedAtIdx: index("reward_events_user_id_created_at_idx").on(
+      table.userId,
+      table.createdAt,
+    ),
+    sourceCreatedAtIdx: index("reward_events_source_created_at_idx").on(
+      table.source,
+      table.createdAt,
+    ),
+  }),
+);

@@ -205,8 +205,6 @@ export const Challenge = ({
 
     const handleContinue = async () => {
       setIsNavigatingFromEndScreen(true);
-      // Small delay to ensure loading state is visible
-      await new Promise(resolve => setTimeout(resolve, 100));
       router.push("/learn");
     };
 

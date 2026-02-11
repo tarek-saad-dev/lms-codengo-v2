@@ -1,7 +1,6 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
-import { ReactNode, useMemo } from "react";
+import { ReactNode } from "react";
 
 type ChallengeType = "SELECT" | "ASSIST" | "COMPLETE" | "WRITE" | "TEXT" | "IMAGE" | "VIDEO" | "PDF" | "CODE" | "WEBVIEW" | "PROJECT" | "AUDIO";
 
@@ -14,14 +13,11 @@ type ChallengeMotionProps = {
 /**
  * ChallengeMotion Component
  * 
- * Provides unique signature animations for each challenge type.
+ * PERFORMANCE FIX: Removed all animations between challenges for instant switching.
+ * Now acts as a simple wrapper with no transitions.
  * 
- * Features:
- * - Type-based animation variants
- * - Reduced motion support (prefers-reduced-motion)
- * - GPU-accelerated (transforms + opacity only)
- * - No layout shift
- * - Short duration (200-500ms)
+ * Previous implementation caused slow navigation due to mount/unmount animations.
+ * Challenge switching is now instant with no delays.
  * 
  * Usage:
  * ```tsx
@@ -30,111 +26,7 @@ type ChallengeMotionProps = {
  * </ChallengeMotion>
  * ```
  */
-export const ChallengeMotion = ({ children, type, challengeId }: ChallengeMotionProps) => {
-  // Detect reduced motion preference
-  const prefersReducedMotion = useMemo(() => {
-    if (typeof window === "undefined") return false;
-    return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  }, []);
-
-  // Animation variants for each challenge type
-  const animations = useMemo(() => {
-    // Reduced motion: minimal fade only
-    if (prefersReducedMotion) {
-      return {
-        initial: { opacity: 0 },
-        animate: { opacity: 1 },
-        exit: { opacity: 0 },
-        transition: { duration: 0.15 },
-      };
-    }
-
-    // Full animations by type
-    switch (type) {
-      case "SELECT":
-        // Slide up with fade (most common type)
-        return {
-          initial: { opacity: 0, y: 20 },
-          animate: { opacity: 1, y: 0 },
-          exit: { opacity: 0, y: -20 },
-          transition: { duration: 0.3, ease: "easeOut" },
-        };
-
-      case "ASSIST":
-        // Scale with fade (helpful/guided feeling)
-        return {
-          initial: { opacity: 0, scale: 0.95 },
-          animate: { opacity: 1, scale: 1 },
-          exit: { opacity: 0, scale: 0.95 },
-          transition: { duration: 0.25, ease: "easeOut" },
-        };
-
-      case "COMPLETE":
-      case "WRITE":
-        // Slide from left (typing/writing motion)
-        return {
-          initial: { opacity: 0, x: -20 },
-          animate: { opacity: 1, x: 0 },
-          exit: { opacity: 0, x: 20 },
-          transition: { duration: 0.3, ease: "easeOut" },
-        };
-
-      case "TEXT":
-        // Gentle fade (reading content)
-        return {
-          initial: { opacity: 0 },
-          animate: { opacity: 1 },
-          exit: { opacity: 0 },
-          transition: { duration: 0.2 },
-        };
-
-      case "IMAGE":
-        // Zoom in slightly (visual content)
-        return {
-          initial: { opacity: 0, scale: 0.98 },
-          animate: { opacity: 1, scale: 1 },
-          exit: { opacity: 0, scale: 0.98 },
-          transition: { duration: 0.35, ease: "easeOut" },
-        };
-
-      case "VIDEO":
-      case "PDF":
-      case "CODE":
-      case "WEBVIEW":
-        // Slide from right (media/interactive content)
-        return {
-          initial: { opacity: 0, x: 20 },
-          animate: { opacity: 1, x: 0 },
-          exit: { opacity: 0, x: -20 },
-          transition: { duration: 0.3, ease: "easeOut" },
-        };
-
-      default:
-        // Default: simple fade
-        return {
-          initial: { opacity: 0 },
-          animate: { opacity: 1 },
-          exit: { opacity: 0 },
-          transition: { duration: 0.2 },
-        };
-    }
-  }, [type, prefersReducedMotion]);
-
-  return (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key={challengeId}
-        initial={animations.initial}
-        animate={animations.animate}
-        exit={animations.exit}
-        transition={animations.transition}
-        style={{
-          // GPU acceleration
-          willChange: "transform, opacity",
-        }}
-      >
-        {children}
-      </motion.div>
-    </AnimatePresence>
-  );
+export const ChallengeMotion = ({ children }: ChallengeMotionProps) => {
+  // Simple wrapper with no animations - instant challenge switching
+  return <>{children}</>;
 };
