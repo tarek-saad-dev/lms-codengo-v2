@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef } from "react";
 import dynamic from 'next/dynamic';
 
 const Confetti = dynamic(() => import('react-confetti'), {
@@ -123,11 +123,13 @@ export const Challenge = ({
   const [showLessonEndScreen, setShowLessonEndScreen] = useState(false);
   const [isNavigatingFromEndScreen, setIsNavigatingFromEndScreen] = useState(false);
 
+  // BUG FIX: Guard ref to prevent multiple triggers of end screen
+  const hasShownEndScreen = useRef(false);
+
   // Phase 3: Optimistic UI state
   const [hearts, setHearts] = useState(initialHearts);
-  const [percentage, setPercentage] = useState(() => {
-    return initialPercentage === 100 ? 0 : initialPercentage;
-  });
+  // BUG FIX: Don't reset percentage to 0 when it's 100% - this causes re-renders
+  const [percentage, setPercentage] = useState(initialPercentage);
 
   // Phase 3: Prefetch next lesson when component mounts
   useMount(() => {
@@ -190,10 +192,10 @@ export const Challenge = ({
   });
 
   // EARLY RETURN: Show lesson end screen if no challenge exists (lesson completed)
-  // Trigger condition: activeIndex >= challenges.length AND percentage === 100%
-  // Double render prevention: showLessonEndScreen flag set only once
-  if (!challenge && !showLessonEndScreen) {
-    // Set flag to show end screen (this happens only once)
+  // Trigger condition: activeIndex >= challenges.length
+  // BUG FIX: Use ref guard to prevent multiple triggers and ensure end screen stays visible
+  if (!challenge && !hasShownEndScreen.current) {
+    hasShownEndScreen.current = true;
     setShowLessonEndScreen(true);
   }
 

@@ -68,9 +68,9 @@ export const upsertChallengeProgress = async (
       },
     );
 
+    // BUG FIX: Don't revalidate lesson path - it causes page remount and auto-navigation
+    // Only revalidate /learn for when user returns to lesson list
     revalidatePath("/learn");
-    revalidatePath("/lesson");
-    revalidatePath(`/lesson/${lessonId}`);
     return;
   }
 
