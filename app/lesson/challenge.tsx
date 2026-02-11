@@ -19,17 +19,43 @@ import { LessonCelebration } from "./lesson-celebration";
 import { useRouter } from "next/navigation";
 import { useHeartsModal } from "@/store/use-hearts-modal";
 import { usePracticeModal } from "@/store/use-practice-modal";
+// Phase 2: Keep lightweight challenges static
 import { TextChallenge } from "./text-challenge";
 import { ImageChallenge } from "./image-challenge";
-import { VideoChallenge } from "./video-challenge";
-import { PdfChallenge } from "./pdf-challenge";
-import { CodeChallenge } from "./code-challenge";
 import { CompleteChallenge } from "./complete-challenge";
 import { WriteChallenge } from "./write-challenge";
-import { WebView } from "./web-view";
-import { AudioChallenge } from "./audio-challenge";
-// import ProjectV2Challenge from "./projectv2-challenge";
-import ProjectV3Challenge from "./projectv3-challenge";
+import { Loader2 } from "lucide-react";
+
+// Phase 2: Dynamic import heavy challenge types to reduce initial bundle
+const VideoChallenge = dynamic(() => import("./video-challenge").then(m => ({ default: m.VideoChallenge })), {
+  loading: () => <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-green-600" /></div>,
+  ssr: false
+});
+
+const PdfChallenge = dynamic(() => import("./pdf-challenge").then(m => ({ default: m.PdfChallenge })), {
+  loading: () => <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-green-600" /></div>,
+  ssr: false
+});
+
+const CodeChallenge = dynamic(() => import("./code-challenge").then(m => ({ default: m.CodeChallenge })), {
+  loading: () => <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-green-600" /></div>,
+  ssr: false
+});
+
+const WebView = dynamic(() => import("./web-view").then(m => ({ default: m.WebView })), {
+  loading: () => <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-green-600" /></div>,
+  ssr: false
+});
+
+const AudioChallenge = dynamic(() => import("./audio-challenge").then(m => ({ default: m.AudioChallenge })), {
+  loading: () => <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-green-600" /></div>,
+  ssr: false
+});
+
+const ProjectV3Challenge = dynamic(() => import("./projectv3-challenge"), {
+  loading: () => <div className="flex items-center justify-center h-64"><Loader2 className="w-8 h-8 animate-spin text-green-600" /></div>,
+  ssr: false
+});
 
 type Props = {
   initialPercentage: number;
@@ -147,7 +173,7 @@ export const Challenge = ({
 
   const handleTextComplete = () => {
     startTransition(() => {
-      upsertChallengeProgress(challenge.id)
+      upsertChallengeProgress(challenge.id, lessonId)
         .then((response) => {
           if (response?.error === "hearts") {
             openHeartsModal();
@@ -202,7 +228,7 @@ export const Challenge = ({
       console.log("Correct option!");
       setIsCheckingAnswer(true);
       startTransition(() => {
-        upsertChallengeProgress(challenge.id)
+        upsertChallengeProgress(challenge.id, lessonId)
           .then((response) => {
             if (response?.error === "hearts") {
               openHeartsModal();
@@ -230,7 +256,7 @@ export const Challenge = ({
     } else {
       setIsCheckingAnswer(true);
       startTransition(() => {
-        reduceHearts(challenge.id)
+        reduceHearts(challenge.id, lessonId)
           .then((response) => {
             if (response?.error === "hearts") {
               openHeartsModal();

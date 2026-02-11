@@ -6,42 +6,37 @@ import { revalidatePath } from "next/cache";
 import db from "@/db/drizzle";
 import { and, eq } from "drizzle-orm";
 import { getUserProgress } from "@/db/queries";
-import { challengeProgress, challenges, userProgress } from "@/db/schema";
+import { challengeProgress, userProgress } from "@/db/schema";
 import {
   GAMIFICATION_RULES,
   EconomyChangeReason,
   clampHearts,
 } from "@/lib/gamification-constants";
 
-export const upsertChallengeProgress = async (challengeId: number) => {
+export const upsertChallengeProgress = async (
+  challengeId: number,
+  lessonId: number,
+) => {
   const { userId } = await auth();
 
   if (!userId) {
     throw new Error("Unauthorized");
   }
 
-  const currentUserProgress = await getUserProgress();
+  // Phase 2: Parallelize independent DB queries
+  const [currentUserProgress, existingChallengeProgress] = await Promise.all([
+    getUserProgress(),
+    db.query.challengeProgress.findFirst({
+      where: and(
+        eq(challengeProgress.userId, userId),
+        eq(challengeProgress.challengeId, challengeId),
+      ),
+    }),
+  ]);
 
   if (!currentUserProgress) {
     throw new Error("User progress not found");
   }
-
-  const challenge = await db.query.challenges.findFirst({
-    where: eq(challenges.id, challengeId),
-  });
-
-  if (!challenge) {
-    throw new Error("Challenge not found");
-  }
-
-  const lessonId = challenge.lessonId;
-
-  const existingChallengeProgress = await db.query.challengeProgress.findFirst({
-    where: and(
-      eq(challengeProgress.userId, userId),
-      eq(challengeProgress.challengeId, challengeId),
-    ),
-  });
 
   const isPractice = !!existingChallengeProgress;
 

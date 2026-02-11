@@ -67,19 +67,38 @@ export const getUnits = cache(async () => {
     return [];
   }
 
-  // Todo: add order if needed
+  // Phase 2: Add column selection to reduce payload
   const data = await db.query.units.findMany({
     orderBy: (units, { asc }) => [asc(units.order)],
     where: eq(units.courseId, userProgress.activeCourseId),
+    columns: {
+      id: true,
+      title: true,
+      description: true,
+      order: true,
+    },
     with: {
       lessons: {
         orderBy: (lessons, { asc }) => [asc(lessons.order)],
+        columns: {
+          id: true,
+          title: true,
+          order: true,
+        },
         with: {
           challenges: {
             orderBy: (challenges, { asc }) => [asc(challenges.order)],
+            columns: {
+              id: true,
+              order: true,
+            },
             with: {
               challengeProgress: {
                 where: eq(challengeProgress.userId, userId),
+                columns: {
+                  id: true,
+                  completed: true,
+                },
               },
             },
           },
