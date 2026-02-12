@@ -12,7 +12,10 @@ export type RewardSource =
   | "PRACTICE"
   | "SHOP_PURCHASE"
   | "SYSTEM_ADJUST"
-  | "MIGRATION";
+  | "MIGRATION"
+  | "STREAK_CLAIM"
+  | "BOX_OPEN"
+  | "QUEST_CLAIM";
 
 export interface RewardPayload {
   hearts?: number;
@@ -30,6 +33,7 @@ export interface RewardMeta {
   itemId?: string;
   orderId?: string;
   attemptId?: string;
+  streak?: number;
 }
 
 export interface EconomyResult {

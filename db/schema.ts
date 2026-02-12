@@ -26,6 +26,44 @@ export const rewardSourceEnum = pgEnum("reward_source", [
   "SHOP_PURCHASE",
   "SYSTEM_ADJUST",
   "MIGRATION",
+  "STREAK_CLAIM",
+  "BOX_OPEN",
+  "QUEST_CLAIM",
+]);
+
+export const completionTypeEnum = pgEnum("completion_type", [
+  "LESSON",
+  "UNIT",
+  "COURSE",
+]);
+
+export const boxTypeEnum = pgEnum("box_type", [
+  "DAILY",
+  "BRONZE",
+  "SILVER",
+  "GOLD",
+  "UNIT",
+  "COURSE",
+  "STREAK",
+]);
+
+export const boxStatusEnum = pgEnum("box_status", [
+  "LOCKED",
+  "AVAILABLE",
+  "OPENED",
+]);
+
+export const questTypeEnum = pgEnum("quest_type", [
+  "COMPLETE_LESSONS",
+  "CORRECT_ANSWERS",
+  "EARN_XP",
+  "OPEN_BOX",
+]);
+
+export const questStatusEnum = pgEnum("quest_status", [
+  "ACTIVE",
+  "COMPLETED",
+  "CLAIMED",
 ]);
 
 export const courses = pgTable("courses", {
@@ -268,6 +306,126 @@ export const rewardEvents = pgTable(
     sourceCreatedAtIdx: index("reward_events_source_created_at_idx").on(
       table.source,
       table.createdAt,
+    ),
+  }),
+);
+
+export const userMilestones = pgTable(
+  "user_milestones",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    courseId: integer("course_id")
+      .references(() => courses.id, { onDelete: "cascade" })
+      .notNull(),
+    unitId: integer("unit_id")
+      .references(() => units.id, { onDelete: "cascade" })
+      .notNull(),
+    lessonId: integer("lesson_id")
+      .references(() => lessons.id, { onDelete: "cascade" })
+      .notNull(),
+    completionType: completionTypeEnum("completion_type").notNull(),
+    xpGained: integer("xp_gained").notNull().default(0),
+    coinsGained: integer("coins_gained").notNull().default(0),
+    heartsGained: integer("hearts_gained").notNull().default(0),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdCreatedAtIdx: index("user_milestones_user_id_created_at_idx").on(
+      table.userId,
+      table.createdAt,
+    ),
+    userIdLessonIdIdx: index("user_milestones_user_id_lesson_id_idx").on(
+      table.userId,
+      table.lessonId,
+    ),
+  }),
+);
+
+export const userMilestonesRelations = relations(userMilestones, ({ one }) => ({
+  course: one(courses, {
+    fields: [userMilestones.courseId],
+    references: [courses.id],
+  }),
+  unit: one(units, {
+    fields: [userMilestones.unitId],
+    references: [units.id],
+  }),
+  lesson: one(lessons, {
+    fields: [userMilestones.lessonId],
+    references: [lessons.id],
+  }),
+}));
+
+export const userStreak = pgTable(
+  "user_streak",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").notNull().unique(),
+    currentStreak: integer("current_streak").notNull().default(0),
+    bestStreak: integer("best_streak").notNull().default(0),
+    lastActiveDate: text("last_active_date"), // YYYY-MM-DD format
+    lastClaimDate: text("last_claim_date"), // YYYY-MM-DD format
+    freezes: integer("freezes").notNull().default(1), // Start with 1 freeze
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdIdx: index("user_streak_user_id_idx").on(table.userId),
+  }),
+);
+
+export const userBoxes = pgTable(
+  "user_boxes",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    boxType: boxTypeEnum("box_type").notNull(),
+    status: boxStatusEnum("status").notNull().default("AVAILABLE"),
+    availableAt: timestamp("available_at"),
+    openedAt: timestamp("opened_at"),
+    expiresAt: timestamp("expires_at"),
+    source: text("source").notNull(),
+    meta: jsonb("meta"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdStatusIdx: index("user_boxes_user_id_status_idx").on(
+      table.userId,
+      table.status,
+    ),
+    userIdBoxTypeCreatedAtIdx: index(
+      "user_boxes_user_id_box_type_created_at_idx",
+    ).on(table.userId, table.boxType, table.createdAt),
+  }),
+);
+
+export const userQuests = pgTable(
+  "user_quests",
+  {
+    id: serial("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    dateKey: text("date_key").notNull(),
+    questType: questTypeEnum("quest_type").notNull(),
+    target: integer("target").notNull(),
+    progress: integer("progress").notNull().default(0),
+    status: questStatusEnum("status").notNull().default("ACTIVE"),
+    rewardCoins: integer("reward_coins").notNull().default(0),
+    rewardXp: integer("reward_xp").notNull().default(0),
+    rewardHearts: integer("reward_hearts").notNull().default(0),
+    meta: jsonb("meta"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => ({
+    userIdDateKeyIdx: index("user_quests_user_id_date_key_idx").on(
+      table.userId,
+      table.dateKey,
+    ),
+    userIdStatusIdx: index("user_quests_user_id_status_idx").on(
+      table.userId,
+      table.status,
     ),
   }),
 );
